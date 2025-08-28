@@ -168,6 +168,7 @@ std::unique_ptr<ExternType> FuncType::Clone() const {
   return std::make_unique<FuncType>(*this);
 }
 
+// TODO: Check if RecursiveMatch and Match correctly merged
 static bool RecursiveMatch(Type expected,
                            Index expected_recursive_start,
                            std::vector<FuncType>* expected_func_types,
@@ -294,6 +295,43 @@ Result Match(const FuncType& expected,
 
         actual_index = ((*actual.func_types)[actual_index]).canonical_sub_index;
       } while (actual_index != kInvalidIndex);
+    }
+  }
+
+  if (out_msg) {
+    *out_msg = "import signature mismatch";
+  }
+  return Result::Error;
+  bool has_reference = false;
+
+  for (auto it : expected.params) {
+    if (it.IsReferenceWithIndex()) {
+      has_reference = true;
+      break;
+    }
+  }
+
+  if (!has_reference) {
+    for (auto it : expected.results) {
+      if (it.IsReferenceWithIndex()) {
+        has_reference = true;
+        break;
+      }
+    }
+  }
+
+  if (!has_reference) {
+    // Simple function, can be a callback without module.
+    if (expected.params == actual.params &&
+        expected.results == actual.results) {
+      return Result::Ok;
+    }
+  } else {
+    if (RecursiveMatch(expected.params, expected.func_types, actual.params,
+                       actual.func_types) &&
+        RecursiveMatch(expected.results, expected.func_types, actual.results,
+                       actual.func_types)) {
+      return Result::Ok;
     }
   }
 
@@ -1643,6 +1681,25 @@ RunResult Thread::StepInternal(Trap::Ptr* out_trap) {
       break;
     }
 
+    case O::BrOnNonNull: {
+      Ref ref = Pop<Ref>();
+      if (ref != Ref::Null) {
+        Push(ref);
+        pc = instr.imm_u32;
+      }
+      break;
+    }
+
+    case O::BrOnNull: {
+      Ref ref = Pop<Ref>();
+      if (ref == Ref::Null) {
+        pc = instr.imm_u32;
+      } else {
+        Push(ref);
+      }
+      break;
+    }
+
     case O::BrTable: {
       auto key = Pop<u32>();
       if (key >= instr.imm_u32) {
@@ -1678,6 +1735,19 @@ RunResult Thread::StepInternal(Trap::Ptr* out_trap) {
           Failed(Match(new_func->type(), func_type, nullptr)),
           "indirect call signature mismatch");  // TODO: don't use "signature"
       if (instr.op == O::ReturnCallIndirect) {
+        return DoReturnCall(new_func, out_trap);
+      } else {
+        return DoCall(new_func, out_trap);
+      }
+    }
+
+    case O::CallRef:
+    case O::ReturnCallRef: {
+      Ref new_func_ref = Pop<Ref>();
+      TRAP_IF(new_func_ref == Ref::Null, "null function reference");
+      Func::Ptr new_func{store_, new_func_ref};
+
+      if (instr.op == O::ReturnCallRef) {
         return DoReturnCall(new_func, out_trap);
       } else {
         return DoCall(new_func, out_trap);
@@ -2029,6 +2099,10 @@ RunResult Thread::StepInternal(Trap::Ptr* out_trap) {
 
     case O::RefIsNull:
       Push(Pop<Ref>() == Ref::Null);
+      break;
+
+    case O::RefAsNonNull:
+      TRAP_IF(Pick(1).Get<Ref>() == Ref::Null, "null reference");
       break;
 
     case O::RefAsNonNull:

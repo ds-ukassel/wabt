@@ -199,7 +199,7 @@ class WastParser {
   static Result ResolveTargetTypeVector(const Module&, TypeVector*,
                                         ReferenceVars*, Errors*);
   static Result ResolveTargetFieldVector(const Module&, StructType*,
-                                         ReferenceVars*, Errors* errors);
+                                         ReferenceVars*, Errors* );
   Result ParseModuleFieldList(Module*);
   Result ParseModuleField(Module*);
   Result ParseDataModuleField(Module*);

@@ -29,7 +29,7 @@ TypeVector SharedValidator::ToTypeVector(Index count, const Type* types) {
 SharedValidator::SharedValidator(Errors* errors, const ValidateOptions& options)
     : options_(options),
       errors_(errors),
-      typechecker_(options.features, type_fields_) {
+      typechecker_(options.features, type_fields_) { // TODO: might be func_types_ instead of type_fields (merge conflict)
   typechecker_.set_error_callback(
       [this](const char* msg) { OnTypecheckerError(msg); });
 }
@@ -110,6 +110,7 @@ Result SharedValidator::OnStructType(const Location& loc,
   return result;
 }
 
+// TODO: Check if correctly merged
 Result SharedValidator::OnArrayType(const Location& loc,
                                     TypeMut field,
                                     GCTypeExtension* gc_ext) {
@@ -172,6 +173,8 @@ Result SharedValidator::OnTable(const Location& loc,
   if (limits.is_shared) {
     result |= PrintError(loc, "tables may not be shared");
   }
+
+  // TODO: Check if correctly merged
   if (options_.features.reference_types_enabled()) {
     if (!elem_type.IsRef()) {
       result |= PrintError(loc, "tables must have reference types");
@@ -1483,6 +1486,12 @@ Result SharedValidator::OnMemorySize(const Location& loc, Var memidx) {
 
 Result SharedValidator::OnNop(const Location& loc) {
   Result result = CheckInstr(Opcode::Nop, loc);
+  return result;
+}
+
+Result SharedValidator::OnRefAsNonNull(const Location& loc) {
+  Result result = CheckInstr(Opcode::Nop, loc);
+  result |= typechecker_.OnRefAsNonNullExpr();
   return result;
 }
 

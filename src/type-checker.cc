@@ -644,6 +644,21 @@ Result TypeChecker::PopAndCheck3Types(Type expected1,
   return result;
 }
 
+Result TypeChecker::PopAndCheckReference(Type* actual, const char* desc) {
+  *actual = Type::Any;
+  Result result = PeekType(0, actual);
+
+  // Type::Any is a valid value for dead code, and replacing
+  // it with anything might break the syntax checker.
+  if (*actual != Type::Any && !actual->IsRef()) {
+    result = Result::Error;
+  }
+
+  PrintStackIfFailed(result, desc, Type::FuncRef);
+  result |= DropTypes(1);
+  return result;
+}
+
 Result TypeChecker::PopAndCheck4Types(Type expected1,
                                       Type expected2,
                                       Type expected3,
@@ -1023,19 +1038,44 @@ Result TypeChecker::OnBrOnCast(Opcode opcode,
   return result;
 }
 
+Result TypeChecker::OnBrOnNull(Index depth) {
+  Type actual;
+  CHECK_RESULT(PopAndCheckReference(&actual, "br_on_null"));
+
+  Label* label;
+  CHECK_RESULT(GetLabel(depth, &label));
+  Result result = PopAndCheckSignature(label->br_types(), "br_on_null");
+  PushTypes(label->br_types());
+
+  actual.ConvertRefNullToRef();
+  PushType(actual);
+  return result;
+}
+
+static Type convertRefNullToRef(Type type) {
+  if (type == Type::ExternRef || type == Type::FuncRef) {
+    return Type(type, Type::ReferenceNonNull);
+  }
+
+  assert(type.IsReferenceWithIndex());
+  return Type(Type::Ref, type.GetReferenceIndex());
+}
+
 Result TypeChecker::OnBrOnNonNull(Index depth) {
   Type actual;
   CHECK_RESULT(PopAndCheckReference(&actual, "br_on_non_null"));
-  actual.ConvertRefNullToRef();
-
-  PushType(actual);
+  if (actual != Type::Any) {
+    PushType(convertRefNullToRef(actual));
+  }
 
   Label* label;
   CHECK_RESULT(GetLabel(depth, &label));
   Result result = PopAndCheckSignature(label->br_types(), "br_on_non_null");
   PushTypes(label->br_types());
 
-  result |= DropTypes(1);
+  if (actual != Type::Any) {
+    result |= DropTypes(1);
+  }
   return result;
 }
 
@@ -1048,7 +1088,9 @@ Result TypeChecker::OnBrOnNull(Index depth) {
   Result result = PopAndCheckSignature(label->br_types(), "br_on_null");
   PushTypes(label->br_types());
 
-  actual.ConvertRefNullToRef();
+  if (actual != Type::Any) {
+    actual = convertRefNullToRef(actual);
+  }
   PushType(actual);
   return result;
 }
@@ -1450,6 +1492,12 @@ Result TypeChecker::OnRefFuncExpr(Index func_type) {
   } else {
     PushType(Type(Type::Ref, func_type));
   }
+  PushType(actual);
+  return Result::Ok;
+}
+
+Result TypeChecker::OnRefFuncExpr(Index func_type) {
+  PushType(Type(Type::Ref, func_type));
   return Result::Ok;
 }
 

@@ -212,6 +212,8 @@ class BinaryReaderInterp : public BinaryReaderNop {
                         Type type2) override;
   Result OnBrOnNonNullExpr(Index depth) override;
   Result OnBrOnNullExpr(Index depth) override;
+  Result OnBrOnNonNullExpr(Index depth) override;
+  Result OnBrOnNullExpr(Index depth) override;
   Result OnBrTableExpr(Index num_targets,
                        Index* target_depths,
                        Index default_target_depth) override;
@@ -664,7 +666,7 @@ Result BinaryReaderInterp::EndTypeSection() {
     it.canonical_sub_index =
         validator_.GetCanonicalTypeIndex(it.canonical_sub_index);
   }
-  return Result::Ok;
+  return result;
 }
 
 Result BinaryReaderInterp::OnImportFunc(Index import_index,
@@ -1476,6 +1478,14 @@ Result BinaryReaderInterp::OnCallRefExpr(Type sig_type) {
   return Result::Ok;
 }
 
+Result BinaryReaderInterp::OnCallRefExpr(Type sig_type) {
+  CHECK_RESULT(
+      validator_.OnCallRef(GetLocation(), Var(sig_type, GetLocation())));
+  assert(sig_type == Type::RefNull);
+  istream_.Emit(Opcode::CallRef);
+  return Result::Ok;
+}
+
 Result BinaryReaderInterp::OnReturnCallExpr(Index func_index) {
   CHECK_RESULT(
       validator_.OnReturnCall(GetLocation(), Var(func_index, GetLocation())));
@@ -1530,6 +1540,14 @@ Result BinaryReaderInterp::OnReturnCallIndirectExpr(Index sig_index,
   istream_.EmitDropKeep(drop_count, keep_count);
   istream_.EmitCatchDrop(catch_drop_count);
   istream_.Emit(Opcode::ReturnCallIndirect, table_index, sig_index);
+  return Result::Ok;
+}
+
+Result BinaryReaderInterp::OnReturnCallRefExpr(Type sig_type) {
+  CHECK_RESULT(
+      validator_.OnReturnCallRef(GetLocation(), Var(sig_type, GetLocation())));
+  assert(sig_type == Type::RefNull);
+  istream_.Emit(Opcode::ReturnCallRef);
   return Result::Ok;
 }
 

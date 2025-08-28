@@ -943,6 +943,12 @@ Result WatWriter::ExprVisitorDelegate::OnRefAsNonNullExpr(
   return Result::Ok;
 }
 
+Result WatWriter::ExprVisitorDelegate::OnRefAsNonNullExpr(
+    RefAsNonNullExpr* expr) {
+  writer_->WritePutsNewline(Opcode::RefAsNonNull_Opcode.GetName());
+  return Result::Ok;
+}
+
 Result WatWriter::ExprVisitorDelegate::OnRefFuncExpr(RefFuncExpr* expr) {
   writer_->WritePutsSpace(Opcode::RefFunc_Opcode.GetName());
   writer_->WriteVar(expr->var, NextChar::Newline);
@@ -993,6 +999,13 @@ Result WatWriter::ExprVisitorDelegate::OnReturnCallIndirectExpr(
           : Var{writer_->module.GetFuncTypeIndex(expr->decl), expr->loc};
   writer_->WriteVar(type_var, NextChar::Space);
   writer_->WriteCloseNewline();
+  return Result::Ok;
+}
+
+Result WatWriter::ExprVisitorDelegate::OnReturnCallRefExpr(
+    ReturnCallRefExpr* expr) {
+  writer_->WritePutsSpace(Opcode::ReturnCallRef_Opcode.GetName());
+  writer_->WriteVar(expr->sig_type, NextChar::Newline);
   return Result::Ok;
 }
 

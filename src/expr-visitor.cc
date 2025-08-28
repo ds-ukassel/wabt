@@ -421,6 +421,10 @@ Result ExprVisitor::HandleDefaultState(Expr* expr) {
       CHECK_RESULT(delegate_->OnRefAsNonNullExpr(cast<RefAsNonNullExpr>(expr)));
       break;
 
+    case ExprType::RefAsNonNull:
+      CHECK_RESULT(delegate_->OnRefAsNonNullExpr(cast<RefAsNonNullExpr>(expr)));
+      break;
+
     case ExprType::RefCast:
       CHECK_RESULT(delegate_->OnRefCastExpr(cast<RefCastExpr>(expr)));
       break;

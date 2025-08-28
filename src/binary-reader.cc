@@ -383,6 +383,9 @@ Result BinaryReader::ReadType(Type* out_value, const char* desc) {
                        (options_.features.gc_enabled() &&
                         Type::EnumIsNonTypedGCRef(heap_type_code)),
                    "not allowed reference type: %s", desc);
+      type = (static_cast<Type::Enum>(type) == Type::Ref)
+                 ? Type::ReferenceNonNull
+                 : Type::ReferenceOrNull;
       *out_value =
           Type(heap_type_code, static_cast<Type::Enum>(type) == Type::RefNull);
     } else {
@@ -630,6 +633,7 @@ bool BinaryReader::IsConcreteType(Type type) {
     case Type::V128:
       return options_.features.simd_enabled();
 
+    case Type::Reference:
     case Type::Ref:
     case Type::RefNull:
       return options_.features.function_references_enabled();
@@ -872,6 +876,22 @@ Result BinaryReader::ReadInstructions(Offset end_offset, const char* context) {
         Index depth;
         CHECK_RESULT(ReadIndex(&depth, "br_if depth"));
         CALLBACK(OnBrIfExpr, depth);
+        CALLBACK(OnOpcodeIndex, depth);
+        break;
+      }
+
+      case Opcode::BrOnNonNull: {
+        Index depth;
+        CHECK_RESULT(ReadIndex(&depth, "br_on_non_null depth"));
+        CALLBACK(OnBrOnNonNullExpr, depth);
+        CALLBACK(OnOpcodeIndex, depth);
+        break;
+      }
+
+      case Opcode::BrOnNull: {
+        Index depth;
+        CHECK_RESULT(ReadIndex(&depth, "br_on_null depth"));
+        CALLBACK(OnBrOnNullExpr, depth);
         CALLBACK(OnOpcodeIndex, depth);
         break;
       }
@@ -1984,6 +2004,11 @@ Result BinaryReader::ReadInstructions(Offset end_offset, const char* context) {
         CALLBACK(OnOpcodeBare);
         break;
 
+      case Opcode::RefAsNonNull:
+        CALLBACK(OnRefAsNonNullExpr);
+        CALLBACK(OnOpcodeBare);
+        break;
+
       case Opcode::RefFunc: {
         Index func;
         CHECK_RESULT(ReadIndex(&func, "func index"));
@@ -1993,8 +2018,24 @@ Result BinaryReader::ReadInstructions(Offset end_offset, const char* context) {
       }
 
       case Opcode::RefNull: {
+        uint64_t heap_type;
         Type type;
         CHECK_RESULT(ReadHeapType(&type, true, "ref.null"));
+        CHECK_RESULT(ReadS64Leb128(&heap_type, "ref.null type"));
+
+        if (static_cast<int64_t>(heap_type) < 0 ||
+            static_cast<int64_t>(heap_type) >= kInvalidIndex) {
+          Type::Enum type_code = static_cast<Type::Enum>(heap_type);
+          ERROR_UNLESS(IsConcreteReferenceType(type_code),
+                       "expected valid ref.null type (got " PRItypecode ")",
+                       WABT_PRINTF_TYPE_CODE(type_code));
+          type = Type(type_code);
+        } else {
+          ERROR_UNLESS(options_.features.function_references_enabled(),
+                       "function references are not enabled for ref.null");
+          type = Type(Type::RefNull, static_cast<Index>(heap_type));
+        }
+
         CALLBACK(OnRefNullExpr, type);
         CALLBACK(OnOpcodeType, type);
         break;
@@ -2714,7 +2755,7 @@ Result BinaryReader::ReadCodeMetadataSection(std::string_view name,
   Index last_function_index = kInvalidIndex;
   for (Index i = 0; i < num_functions; ++i) {
     Index function_index;
-    CHECK_RESULT(ReadCount(&function_index, "function index"));
+    CHECK_RESULT(ReadIndex(&function_index, "function index"));
     ERROR_UNLESS(function_index >= num_func_imports_,
                  "function import can't have metadata (got %" PRIindex ")",
                  function_index);

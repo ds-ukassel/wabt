@@ -3488,7 +3488,7 @@ Result WastParser::ParseConstList(ConstVector* consts, ConstType type) {
         break;
       case TokenType::RefNull: {
         auto token = Consume();
-        Type type = Type::BottomRef();
+        Var type = Type::BottomRef();
 
         if (Peek() != TokenType::Rpar) {
           Var var;
@@ -3505,7 +3505,7 @@ Result WastParser::ParseConstList(ConstVector* consts, ConstType type) {
         }
         ErrorUnlessOpcodeEnabled(token);
         const_.loc = GetLocation();
-        const_.set_null(type);
+        const_.set_null(type.opt_type());
         break;
       }
       case TokenType::RefArray: {

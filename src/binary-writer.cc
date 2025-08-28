@@ -874,6 +874,17 @@ void BinaryWriter::WriteExpr(const Func* func, const Expr* expr) {
       WriteU32Leb128(stream_, GetLabelVarDepth(&cast<BrOnNullExpr>(expr)->var),
                      "break depth");
       break;
+    case ExprType::BrOnNonNull:
+      WriteOpcode(stream_, Opcode::BrOnNonNull);
+      WriteU32Leb128(stream_,
+                     GetLabelVarDepth(&cast<BrOnNonNullExpr>(expr)->var),
+                     "break depth");
+      break;
+    case ExprType::BrOnNull:
+      WriteOpcode(stream_, Opcode::BrOnNull);
+      WriteU32Leb128(stream_, GetLabelVarDepth(&cast<BrOnNullExpr>(expr)->var),
+                     "break depth");
+      break;
     case ExprType::BrTable: {
       auto* br_table_expr = cast<BrTableExpr>(expr);
       WriteOpcode(stream_, Opcode::BrTable);
@@ -1138,6 +1149,10 @@ void BinaryWriter::WriteExpr(const Func* func, const Expr* expr) {
       WriteOpcode(stream_, Opcode::RefAsNonNull);
       break;
     }
+    case ExprType::RefAsNonNull: {
+      WriteOpcode(stream_, Opcode::RefAsNonNull);
+      break;
+    }
     case ExprType::RefCast: {
       const RefCastExpr* ref_cast_expr = cast<RefCastExpr>(expr);
       Type type = ref_cast_expr->var.to_type();
@@ -1153,11 +1168,15 @@ void BinaryWriter::WriteExpr(const Func* func, const Expr* expr) {
       break;
     }
     case ExprType::RefNull: {
+      // TODO: Confirm this is correctly merged
       WriteOpcode(stream_, Opcode::RefNull);
       const RefNullExpr* ref_null_expr = cast<RefNullExpr>(expr);
       Type type = ref_null_expr->type.to_type();
       WriteHeapType(stream_, type, "ref.null type");
       break;
+
+
+
     }
     case ExprType::RefIsNull:
       WriteOpcode(stream_, Opcode::RefIsNull);
