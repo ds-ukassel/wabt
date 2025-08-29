@@ -1495,12 +1495,6 @@ Result SharedValidator::OnRefAsNonNull(const Location& loc) {
   return result;
 }
 
-Result SharedValidator::OnRefAsNonNull(const Location& loc) {
-  Result result = CheckInstr(Opcode::Nop, loc);
-  result |= typechecker_.OnRefAsNonNullExpr();
-  return result;
-}
-
 Result SharedValidator::OnRefCast(const Location& loc, Var type_var) {
   Result result = CheckInstr(Opcode::RefCast, loc);
   result |= typechecker_.OnRefCast(type_var.to_type());

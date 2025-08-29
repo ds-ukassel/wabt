@@ -261,19 +261,6 @@ class SharedValidator {
   Result OnUnreachable(const Location&);
 
  private:
-  struct StructType {
-    StructType() = default;
-    StructType(const TypeMutVector& fields) : fields(fields) {}
-
-    TypeMutVector fields;
-  };
-
-  struct ArrayType {
-    ArrayType() = default;
-    ArrayType(TypeMut field) : field(field) {}
-
-    TypeMut field;
-  };
 
   struct TableType {
     TableType() = default;

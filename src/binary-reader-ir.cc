@@ -1101,12 +1101,6 @@ Result BinaryReaderIR::OnReturnCallRefExpr(Type sig_type) {
   return AppendExpr(std::move(expr));
 }
 
-Result BinaryReaderIR::OnReturnCallRefExpr(Type sig_type) {
-  auto expr = std::make_unique<ReturnCallRefExpr>();
-  expr->sig_type = Var(sig_type, GetLocation());
-  return AppendExpr(std::move(expr));
-}
-
 Result BinaryReaderIR::OnCompareExpr(Opcode opcode) {
   return AppendExpr(std::make_unique<CompareExpr>(opcode));
 }

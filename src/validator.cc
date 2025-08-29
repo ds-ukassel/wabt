@@ -594,11 +594,6 @@ Result Validator::OnRefAsNonNullExpr(RefAsNonNullExpr* expr) {
   return Result::Ok;
 }
 
-Result Validator::OnRefAsNonNullExpr(RefAsNonNullExpr* expr) {
-  result_ |= validator_.OnRefAsNonNull(expr->loc);
-  return Result::Ok;
-}
-
 Result Validator::OnRefFuncExpr(RefFuncExpr* expr) {
   result_ |= validator_.OnRefFunc(expr->loc, expr->var);
   return Result::Ok;
@@ -632,11 +627,6 @@ Result Validator::OnReturnCallExpr(ReturnCallExpr* expr) {
 Result Validator::OnReturnCallIndirectExpr(ReturnCallIndirectExpr* expr) {
   result_ |= validator_.OnReturnCallIndirect(
       expr->loc, GetFuncTypeIndex(expr->loc, expr->decl), expr->table);
-  return Result::Ok;
-}
-
-Result Validator::OnReturnCallRefExpr(ReturnCallRefExpr* expr) {
-  result_ |= validator_.OnReturnCallRef(expr->loc, expr->sig_type);
   return Result::Ok;
 }
 

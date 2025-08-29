@@ -260,8 +260,6 @@ class Type {
       case Type::ExnRef:
       case Type::Ref:
       case Type::RefNull:
-      case Type::Ref:
-      case Type::RefNull:
         return TypeVector(this, this + 1);
 
       default:
@@ -270,8 +268,7 @@ class Type {
   }
 
   static bool EnumIsReferenceWithIndex(Enum value) {
-    return value == Type::Reference || value == Type::Ref ||
-           value == Type::RefNull;
+    return value == Type::Ref || value == Type::RefNull;
   }
 
   static bool EnumIsNonTypedGCRef(Enum value) {

@@ -633,7 +633,6 @@ bool BinaryReader::IsConcreteType(Type type) {
     case Type::V128:
       return options_.features.simd_enabled();
 
-    case Type::Reference:
     case Type::Ref:
     case Type::RefNull:
       return options_.features.function_references_enabled();
@@ -876,22 +875,6 @@ Result BinaryReader::ReadInstructions(Offset end_offset, const char* context) {
         Index depth;
         CHECK_RESULT(ReadIndex(&depth, "br_if depth"));
         CALLBACK(OnBrIfExpr, depth);
-        CALLBACK(OnOpcodeIndex, depth);
-        break;
-      }
-
-      case Opcode::BrOnNonNull: {
-        Index depth;
-        CHECK_RESULT(ReadIndex(&depth, "br_on_non_null depth"));
-        CALLBACK(OnBrOnNonNullExpr, depth);
-        CALLBACK(OnOpcodeIndex, depth);
-        break;
-      }
-
-      case Opcode::BrOnNull: {
-        Index depth;
-        CHECK_RESULT(ReadIndex(&depth, "br_on_null depth"));
-        CALLBACK(OnBrOnNullExpr, depth);
         CALLBACK(OnOpcodeIndex, depth);
         break;
       }
@@ -1998,11 +1981,6 @@ Result BinaryReader::ReadInstructions(Offset end_offset, const char* context) {
         CALLBACK(OnOpcodeUint32, table);
         break;
       }
-
-      case Opcode::RefAsNonNull:
-        CALLBACK(OnRefAsNonNullExpr);
-        CALLBACK(OnOpcodeBare);
-        break;
 
       case Opcode::RefAsNonNull:
         CALLBACK(OnRefAsNonNullExpr);

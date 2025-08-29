@@ -380,7 +380,6 @@ class TypeChecker {
   TypeVector* br_table_sig_ = nullptr;
   Features features_;
   TypeFields& type_fields_;
-  std::map<Index, FuncType>& func_types_;
 };
 
 }  // namespace wabt

@@ -371,11 +371,6 @@ Result NameResolver::OnCallRefExpr(CallRefExpr* expr) {
   return Result::Ok;
 }
 
-Result NameResolver::OnCallRefExpr(CallRefExpr* expr) {
-  ResolveFuncTypeVar(&expr->sig_type);
-  return Result::Ok;
-}
-
 Result NameResolver::OnReturnCallExpr(ReturnCallExpr* expr) {
   ResolveFuncVar(&expr->var);
   return Result::Ok;
@@ -386,11 +381,6 @@ Result NameResolver::OnReturnCallIndirectExpr(ReturnCallIndirectExpr* expr) {
     ResolveFuncTypeVar(&expr->decl.type_var);
   }
   ResolveTableVar(&expr->table);
-  return Result::Ok;
-}
-
-Result NameResolver::OnReturnCallRefExpr(ReturnCallRefExpr* expr) {
-  ResolveFuncTypeVar(&expr->sig_type);
   return Result::Ok;
 }
 

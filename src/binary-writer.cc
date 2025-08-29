@@ -874,17 +874,6 @@ void BinaryWriter::WriteExpr(const Func* func, const Expr* expr) {
       WriteU32Leb128(stream_, GetLabelVarDepth(&cast<BrOnNullExpr>(expr)->var),
                      "break depth");
       break;
-    case ExprType::BrOnNonNull:
-      WriteOpcode(stream_, Opcode::BrOnNonNull);
-      WriteU32Leb128(stream_,
-                     GetLabelVarDepth(&cast<BrOnNonNullExpr>(expr)->var),
-                     "break depth");
-      break;
-    case ExprType::BrOnNull:
-      WriteOpcode(stream_, Opcode::BrOnNull);
-      WriteU32Leb128(stream_, GetLabelVarDepth(&cast<BrOnNullExpr>(expr)->var),
-                     "break depth");
-      break;
     case ExprType::BrTable: {
       auto* br_table_expr = cast<BrTableExpr>(expr);
       WriteOpcode(stream_, Opcode::BrTable);
@@ -1143,10 +1132,6 @@ void BinaryWriter::WriteExpr(const Func* func, const Expr* expr) {
       Index index = module_->GetTableIndex(cast<TableFillExpr>(expr)->var);
       WriteOpcode(stream_, Opcode::TableFill);
       WriteTableNumberWithReloc(index, "table.fill table index");
-      break;
-    }
-    case ExprType::RefAsNonNull: {
-      WriteOpcode(stream_, Opcode::RefAsNonNull);
       break;
     }
     case ExprType::RefAsNonNull: {
