@@ -1563,6 +1563,14 @@ Result BinaryReader::ReadInstructions(Offset end_offset, const char* context) {
         CALLBACK0(OnOpcodeBare);
         break;
 
+      case Opcode::I64Add128:
+      case Opcode::I64Sub128:
+      case Opcode::I64MulWideS:
+      case Opcode::I64MulWideU:
+        CALLBACK(OnBinaryExpr, opcode);
+        CALLBACK0(OnOpcodeBare);
+        break;
+
       case Opcode::Try: {
         nested_blocks.push(opcode);
         Type sig_type;
