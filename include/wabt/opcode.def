@@ -250,6 +250,12 @@ WABT_OPCODE(I64,  F32,  ___,  ___,  0,  0xfc, 0x05, I64TruncSatF32U, "i64.trunc_
 WABT_OPCODE(I64,  F64,  ___,  ___,  0,  0xfc, 0x06, I64TruncSatF64S, "i64.trunc_sat_f64_s", "")
 WABT_OPCODE(I64,  F64,  ___,  ___,  0,  0xfc, 0x07, I64TruncSatF64U, "i64.trunc_sat_f64_u", "")
 
+/* Wide Arithmetic */
+WABT_OPCODE(I64,  I64,  I64,  ___,  0,  0xfc, 0x13, I64Add128, "i64.add128", "")
+WABT_OPCODE(I64,  I64,  I64,  ___,  0,  0xfc, 0x14, I64Sub128, "i64.sub128", "")
+WABT_OPCODE(I64,  I64,  I64,  ___,  0,  0xfc, 0x15, I64MulWideS, "i64.mul_wide_s", "")
+WABT_OPCODE(I64,  I64,  I64,  ___,  0,  0xfc, 0x16, I64MulWideU, "i64.mul_wide_u", "")
+
 /* Bulk-memory */
 WABT_OPCODE(___, I32,  I32,  I32,  0,  0xfc, 0x08, MemoryInit, "memory.init", "")
 WABT_OPCODE(___, ___,  ___,  ___,  0,  0xfc, 0x09, DataDrop, "data.drop", "")
