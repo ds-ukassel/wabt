@@ -1616,7 +1616,8 @@ Result BinaryWriter::WriteModule() {
       ElemSegment* segment = module_->elem_segments[i];
       WriteHeader("elem segment header", i);
       // 1. flags
-      uint8_t flags = segment->GetFlags(module_);
+      uint8_t flags = segment->GetFlags(
+          module_, options_.features.function_references_enabled());
       stream_->WriteU8(flags, "segment flags");
       // 2. optional target table
       if (flags & SegExplicitIndex && segment->kind != SegmentKind::Declared) {
