@@ -25,17 +25,29 @@
 namespace {
 
 const char* ExprTypeName[] = {
-    "AtomicFence",
+    "ArrayCopy",
+    "ArrayFill",
+    "ArrayGet",
+    "ArrayInitData",
+    "ArrayInitElem",
+    "ArrayNew",
+    "ArrayNewData",
+    "ArrayNewDefault",
+    "ArrayNewElem",
+    "ArrayNewFixed",
+    "ArraySet",
     "AtomicLoad",
     "AtomicRmw",
     "AtomicRmwCmpxchg",
     "AtomicStore",
     "AtomicNotify",
+    "AtomicFence",
     "AtomicWait",
     "Binary",
     "Block",
     "Br",
     "BrIf",
+    "BrOnCast",
     "BrOnNonNull",
     "BrOnNull",
     "BrTable",
@@ -47,6 +59,7 @@ const char* ExprTypeName[] = {
     "Const",
     "Convert",
     "Drop",
+    "GCUnary",
     "GlobalGet",
     "GlobalSet",
     "If",
@@ -63,9 +76,11 @@ const char* ExprTypeName[] = {
     "MemorySize",
     "Nop",
     "RefAsNonNull",
+    "RefCast",
     "RefIsNull",
     "RefFunc",
     "RefNull",
+    "RefTest",
     "Rethrow",
     "Return",
     "ReturnCall",
@@ -76,6 +91,10 @@ const char* ExprTypeName[] = {
     "SimdLoadLane",
     "SimdStoreLane",
     "SimdShuffleOp",
+    "StructGet",
+    "StructNew",
+    "StructNewDefault",
+    "StructSet",
     "LoadSplat",
     "LoadZero",
     "Store",
@@ -345,8 +364,49 @@ FuncType* Module::GetFuncType(const Var& var) {
   return dyn_cast<FuncType>(types[index]);
 }
 
+const StructType* Module::GetStructType(const Var& var) const {
+  return const_cast<Module*>(this)->GetStructType(var);
+}
+
+StructType* Module::GetStructType(const Var& var) {
+  Index index = type_bindings.FindIndex(var);
+  if (index >= types.size()) {
+    return nullptr;
+  }
+  return dyn_cast<StructType>(types[index]);
+}
+
+const ArrayType* Module::GetArrayType(const Var& var) const {
+  return const_cast<Module*>(this)->GetArrayType(var);
+}
+
+ArrayType* Module::GetArrayType(const Var& var) {
+  Index index = type_bindings.FindIndex(var);
+  if (index >= types.size()) {
+    return nullptr;
+  }
+  return dyn_cast<ArrayType>(types[index]);
+}
+
 Index Module::GetFuncTypeIndex(const FuncSignature& sig) const {
+  size_t range_index = 0;
+  size_t range_start = types.size();
+
+  if (range_index < recursive_ranges.size()) {
+    range_start = recursive_ranges[range_index].first_type_index;
+  }
+
   for (size_t i = 0; i < types.size(); ++i) {
+    if (i == range_start) {
+      i += recursive_ranges[range_index].type_count - 1;
+      range_index++;
+
+      if (range_index < recursive_ranges.size()) {
+        range_start = recursive_ranges[range_index].first_type_index;
+      }
+      continue;
+    }
+
     if (auto* func_type = dyn_cast<FuncType>(types[i])) {
       if (func_type->sig == sig) {
         return i;
@@ -416,6 +476,10 @@ void Module::AppendField(std::unique_ptr<TypeModuleField> field) {
     type_bindings.emplace(type.name, Binding(field->loc, types.size()));
   }
   types.push_back(&type);
+  fields.push_back(std::move(field));
+}
+
+void Module::AppendField(std::unique_ptr<EmptyRecModuleField> field) {
   fields.push_back(std::move(field));
 }
 
@@ -562,6 +626,10 @@ void Module::AppendField(std::unique_ptr<ModuleField> field) {
     case ModuleFieldType::Tag:
       AppendField(cast<TagModuleField>(std::move(field)));
       break;
+
+    case ModuleFieldType::EmptyRec:
+      AppendField(cast<EmptyRecModuleField>(std::move(field)));
+      break;
   }
 }
 
@@ -703,7 +771,18 @@ void Var::Destroy() {
   }
 }
 
-uint8_t ElemSegment::GetFlags(const Module* module) const {
+void TypeEntryGCTypeExtension::InitSubTypes(Index* sub_type_list,
+                                            Index sub_type_count) {
+  sub_types.clear();
+  sub_types.reserve(sub_type_count);
+
+  for (Index i = 0; i < sub_type_count; i++) {
+    sub_types.push_back(Var(sub_type_list[i], Location()));
+  }
+}
+
+uint8_t ElemSegment::GetFlags(const Module* module,
+                              bool function_references_enabled) const {
   uint8_t flags = 0;
 
   switch (kind) {
@@ -724,15 +803,20 @@ uint8_t ElemSegment::GetFlags(const Module* module) const {
       break;
   }
 
-  bool all_ref_func =
-      elem_type == Type::FuncRef &&
-      std::all_of(elem_exprs.begin(), elem_exprs.end(),
-                  [](const ExprList& elem_expr) {
-                    return elem_expr.front().type() == ExprType::RefFunc;
-                  });
-
-  if (!all_ref_func) {
+  if (function_references_enabled &&
+      elem_type != Type(Type::FuncRef, Type::ReferenceNonNull)) {
     flags |= SegUseElemExprs;
+  } else {
+    bool all_ref_func =
+        elem_type == Type::FuncRef &&
+        std::all_of(elem_exprs.begin(), elem_exprs.end(),
+                    [](const ExprList& elem_expr) {
+                      return elem_expr.front().type() == ExprType::RefFunc;
+                    });
+
+    if (!all_ref_func) {
+      flags |= SegUseElemExprs;
+    }
   }
 
   return flags;

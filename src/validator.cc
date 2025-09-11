@@ -98,6 +98,7 @@ class Validator : public ExprVisitor::Delegate {
   Result EndBlockExpr(BlockExpr*) override;
   Result OnBrExpr(BrExpr*) override;
   Result OnBrIfExpr(BrIfExpr*) override;
+  Result OnBrOnCastExpr(BrOnCastExpr*) override;
   Result OnBrOnNonNullExpr(BrOnNonNullExpr*) override;
   Result OnBrOnNullExpr(BrOnNullExpr*) override;
   Result OnBrTableExpr(BrTableExpr*) override;
@@ -170,6 +171,24 @@ class Validator : public ExprVisitor::Delegate {
   Result OnSimdShuffleOpExpr(SimdShuffleOpExpr*) override;
   Result OnLoadSplatExpr(LoadSplatExpr*) override;
   Result OnLoadZeroExpr(LoadZeroExpr*) override;
+  Result OnArrayCopyExpr(ArrayCopyExpr*) override;
+  Result OnArrayFillExpr(ArrayFillExpr*) override;
+  Result OnArrayGetExpr(ArrayGetExpr*) override;
+  Result OnArrayInitDataExpr(ArrayInitDataExpr*) override;
+  Result OnArrayInitElemExpr(ArrayInitElemExpr*) override;
+  Result OnArrayNewExpr(ArrayNewExpr*) override;
+  Result OnArrayNewDataExpr(ArrayNewDataExpr*) override;
+  Result OnArrayNewDefaultExpr(ArrayNewDefaultExpr*) override;
+  Result OnArrayNewElemExpr(ArrayNewElemExpr*) override;
+  Result OnArrayNewFixedExpr(ArrayNewFixedExpr*) override;
+  Result OnArraySetExpr(ArraySetExpr*) override;
+  Result OnGCUnaryExpr(GCUnaryExpr*) override;
+  Result OnRefCastExpr(RefCastExpr*) override;
+  Result OnRefTestExpr(RefTestExpr*) override;
+  Result OnStructGetExpr(StructGetExpr*) override;
+  Result OnStructNewExpr(StructNewExpr*) override;
+  Result OnStructNewDefaultExpr(StructNewDefaultExpr*) override;
+  Result OnStructSetExpr(StructSetExpr*) override;
 
  private:
   Type GetDeclarationType(const FuncDeclaration&);
@@ -203,28 +222,62 @@ static Result CheckType(Type actual, Type expected) {
   Type::Enum expected_type = expected;
 
   if (actual_type == expected_type) {
-    switch (actual_type) {
-      case Type::ExternRef:
-      case Type::FuncRef:
-        return (expected.IsNullableNonTypedRef() ||
-                !actual.IsNullableNonTypedRef())
-                   ? Result::Ok
-                   : Result::Error;
-
-      case Type::Reference:
-      case Type::Ref:
-      case Type::RefNull:
-        if (actual == expected) {
-          return Result::Ok;
-        }
-        break;
-
-      default:
-        return Result::Ok;
-    }
+    return Result::Ok;
   }
 
-  return Result::Error;
+  if (!expected.IsRef() || !actual.IsRef()) {
+    return Result::Error;
+  }
+
+  if (actual.IsBottomRef()) {
+    return Result::Ok;
+  }
+
+  switch (expected_type) {
+    case Type::RefNull:
+      if (actual_type == Type::FuncRef) {
+        // Specification tests pass expected functions
+        // directly, their type is not relevant.
+        return Result::Ok;
+      }
+      return Result::Error;
+    case Type::Ref:
+      if (actual_type == Type::ArrayRef || actual_type == Type::EqRef ||
+          actual_type == Type::StructRef) {
+        return Result::Ok;
+      }
+      return Result::Error;
+    case Type::NullFuncRef:
+    case Type::FuncRef:
+      if (actual_type == Type::FuncRef) {
+        break;
+      }
+      return Result::Error;
+    case Type::NullExternRef:
+    case Type::ExternRef:
+      if (actual_type == Type::ExternRef) {
+        break;
+      }
+      return Result::Error;
+    case Type::NullRef:
+    case Type::AnyRef:
+      if (actual_type == Type::EqRef) {
+        break;
+      }
+      [[fallthrough]];
+    case Type::EqRef:
+      if (actual_type == Type::I31Ref || actual_type == Type::StructRef ||
+          actual_type == Type::ArrayRef) {
+        break;
+      }
+      break;
+    default:
+      return Result::Error;
+  }
+
+  return (expected.IsNullableNonTypedRef() || !actual.IsNullableNonTypedRef())
+             ? Result::Ok
+             : Result::Error;
 }
 
 void ScriptValidator::CheckTypeIndex(const Location* loc,
@@ -334,6 +387,12 @@ Result Validator::OnBrExpr(BrExpr* expr) {
 
 Result Validator::OnBrIfExpr(BrIfExpr* expr) {
   result_ |= validator_.OnBrIf(expr->loc, expr->var);
+  return Result::Ok;
+}
+
+Result Validator::OnBrOnCastExpr(BrOnCastExpr* expr) {
+  result_ |= validator_.OnBrOnCast(expr->loc, expr->opcode, expr->label_var,
+                                   expr->type1_var, expr->type2_var);
   return Result::Ok;
 }
 
@@ -740,6 +799,97 @@ Result Validator::OnLoadZeroExpr(LoadZeroExpr* expr) {
   return Result::Ok;
 }
 
+Result Validator::OnArrayCopyExpr(ArrayCopyExpr* expr) {
+  result_ |= validator_.OnArrayCopy(expr->loc, expr->type_var, expr->var);
+  return Result::Ok;
+}
+
+Result Validator::OnArrayFillExpr(ArrayFillExpr* expr) {
+  result_ |= validator_.OnArrayFill(expr->loc, expr->var);
+  return Result::Ok;
+}
+
+Result Validator::OnArrayGetExpr(ArrayGetExpr* expr) {
+  result_ |= validator_.OnArrayGet(expr->loc, expr->opcode, expr->type_var);
+  return Result::Ok;
+}
+
+Result Validator::OnArrayInitDataExpr(ArrayInitDataExpr* expr) {
+  result_ |= validator_.OnArrayInitData(expr->loc, expr->type_var, expr->var);
+  return Result::Ok;
+}
+
+Result Validator::OnArrayInitElemExpr(ArrayInitElemExpr* expr) {
+  result_ |= validator_.OnArrayInitElem(expr->loc, expr->type_var, expr->var);
+  return Result::Ok;
+}
+
+Result Validator::OnArrayNewExpr(ArrayNewExpr* expr) {
+  result_ |= validator_.OnArrayNew(expr->loc, expr->var);
+  return Result::Ok;
+}
+
+Result Validator::OnArrayNewDataExpr(ArrayNewDataExpr* expr) {
+  result_ |= validator_.OnArrayNewData(expr->loc, expr->type_var, expr->var);
+  return Result::Ok;
+}
+
+Result Validator::OnArrayNewDefaultExpr(ArrayNewDefaultExpr* expr) {
+  result_ |= validator_.OnArrayNewDefault(expr->loc, expr->var);
+  return Result::Ok;
+}
+
+Result Validator::OnArrayNewElemExpr(ArrayNewElemExpr* expr) {
+  result_ |= validator_.OnArrayNewElem(expr->loc, expr->type_var, expr->var);
+  return Result::Ok;
+}
+
+Result Validator::OnArrayNewFixedExpr(ArrayNewFixedExpr* expr) {
+  result_ |= validator_.OnArrayNewFixed(expr->loc, expr->type_var, expr->count);
+  return Result::Ok;
+}
+
+Result Validator::OnArraySetExpr(ArraySetExpr* expr) {
+  result_ |= validator_.OnArraySet(expr->loc, expr->var);
+  return Result::Ok;
+}
+
+Result Validator::OnGCUnaryExpr(GCUnaryExpr* expr) {
+  result_ |= validator_.OnGCUnary(expr->loc, expr->opcode);
+  return Result::Ok;
+}
+
+Result Validator::OnRefCastExpr(RefCastExpr* expr) {
+  result_ |= validator_.OnRefCast(expr->loc, expr->var);
+  return Result::Ok;
+}
+
+Result Validator::OnRefTestExpr(RefTestExpr* expr) {
+  result_ |= validator_.OnRefTest(expr->loc, expr->var);
+  return Result::Ok;
+}
+
+Result Validator::OnStructGetExpr(StructGetExpr* expr) {
+  result_ |= validator_.OnStructGet(expr->loc, expr->opcode, expr->type_var,
+                                    expr->var);
+  return Result::Ok;
+}
+
+Result Validator::OnStructNewExpr(StructNewExpr* expr) {
+  result_ |= validator_.OnStructNew(expr->loc, expr->var);
+  return Result::Ok;
+}
+
+Result Validator::OnStructNewDefaultExpr(StructNewDefaultExpr* expr) {
+  result_ |= validator_.OnStructNewDefault(expr->loc, expr->var);
+  return Result::Ok;
+}
+
+Result Validator::OnStructSetExpr(StructSetExpr* expr) {
+  result_ |= validator_.OnStructSet(expr->loc, expr->type_var, expr->var);
+  return Result::Ok;
+}
+
 Validator::Validator(Errors* errors,
                      const Module* module,
                      const ValidateOptions& options)
@@ -748,44 +898,94 @@ Validator::Validator(Errors* errors,
       validator_(errors_, options_),
       current_module_(module) {}
 
+static void GetGCTypeExtension(const TypeEntryGCTypeExtension& gc_ext_in,
+                               GCTypeExtension* gc_ext_out,
+                               std::vector<Index>& sub_types) {
+  Index sub_type_count = static_cast<Index>(gc_ext_in.sub_types.size());
+
+  gc_ext_out->is_final_sub_type = gc_ext_in.is_final_sub_type;
+  gc_ext_out->sub_type_count = sub_type_count;
+
+  sub_types.resize(sub_type_count);
+  for (Index i = 0; i < sub_type_count; i++) {
+    sub_types[i] = gc_ext_in.sub_types[i].index();
+  }
+
+  gc_ext_out->sub_types = sub_types.data();
+}
+
 Result Validator::CheckModule() {
   const Module* module = current_module_;
 
   // Type section.
+  Index type_index = 0;
+  Index first_type_index = kInvalidIndex;
+  Index range_index = 0;
+  GCTypeExtension gc_ext;
+  std::vector<Index> sub_types;
+
+  if (!module->recursive_ranges.empty()) {
+    first_type_index = module->recursive_ranges[0].first_type_index;
+  }
+
   for (const ModuleField& field : module->fields) {
     if (auto* f = dyn_cast<TypeModuleField>(&field)) {
+      if (type_index == first_type_index) {
+        const RecursiveRange& range = module->recursive_ranges[range_index];
+        validator_.OnRecursiveType(range.first_type_index, range.type_count);
+
+        first_type_index = kInvalidIndex;
+        if (++range_index < module->recursive_ranges.size()) {
+          first_type_index =
+              module->recursive_ranges[range_index].first_type_index;
+        }
+      }
+
       switch (f->type->kind()) {
         case TypeEntryKind::Func: {
           FuncType* func_type = cast<FuncType>(f->type.get());
+          GetGCTypeExtension(func_type->gc_ext, &gc_ext, sub_types);
+
           result_ |= validator_.OnFuncType(
               field.loc, func_type->sig.param_types.size(),
               func_type->sig.param_types.data(),
               func_type->sig.result_types.size(),
-              func_type->sig.result_types.data(),
-              module->GetFuncTypeIndex(func_type->sig));
+              func_type->sig.result_types.data(), type_index, &gc_ext);
           break;
         }
 
         case TypeEntryKind::Struct: {
           StructType* struct_type = cast<StructType>(f->type.get());
+          GetGCTypeExtension(struct_type->gc_ext, &gc_ext, sub_types);
           TypeMutVector type_muts;
           for (auto&& field : struct_type->fields) {
             type_muts.push_back(TypeMut{field.type, field.mutable_});
           }
           result_ |= validator_.OnStructType(field.loc, type_muts.size(),
-                                             type_muts.data());
+                                             type_muts.data(), &gc_ext);
           break;
         }
 
         case TypeEntryKind::Array: {
           ArrayType* array_type = cast<ArrayType>(f->type.get());
+          GetGCTypeExtension(array_type->gc_ext, &gc_ext, sub_types);
           result_ |= validator_.OnArrayType(
               field.loc,
-              TypeMut{array_type->field.type, array_type->field.mutable_});
+              TypeMut{array_type->field.type, array_type->field.mutable_},
+              &gc_ext);
           break;
         }
       }
+
+      type_index++;
     }
+  }
+
+  while (range_index < module->recursive_ranges.size()) {
+    // Should be 0 for valid modules.
+    const RecursiveRange& range = module->recursive_ranges[range_index];
+    validator_.OnRecursiveType(range.first_type_index, range.type_count);
+    ++range_index;
   }
 
   // Import section.
@@ -801,8 +1001,8 @@ Result Validator::CheckModule() {
 
         case ExternalKind::Table: {
           auto&& table = cast<TableImport>(f->import.get())->table;
-          result_ |=
-              validator_.OnTable(field.loc, table.elem_type, table.elem_limits);
+          result_ |= validator_.OnTable(field.loc, table.elem_type,
+                                        table.elem_limits, true, false);
           break;
         }
 
@@ -841,8 +1041,18 @@ Result Validator::CheckModule() {
   // Table section.
   for (const ModuleField& field : module->fields) {
     if (auto* f = dyn_cast<TableModuleField>(&field)) {
+      bool has_init_expr = !f->table.init_expr.empty();
       result_ |= validator_.OnTable(field.loc, f->table.elem_type,
-                                    f->table.elem_limits);
+                                    f->table.elem_limits, false, has_init_expr);
+
+      // Init expr.
+      if (has_init_expr) {
+        result_ |= validator_.BeginInitExpr(field.loc, f->table.elem_type);
+        ExprVisitor visitor(this);
+        result_ |=
+            visitor.VisitExprList(const_cast<ExprList&>(f->table.init_expr));
+        result_ |= validator_.EndInitExpr();
+      }
     }
   }
 
