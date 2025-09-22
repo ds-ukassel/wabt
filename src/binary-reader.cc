@@ -3200,7 +3200,9 @@ Result BinaryReader::ReadElemSection(Offset section_size) {
         CHECK_RESULT(ReadIndex(&func_index, "elem expr func index"));
         CALLBACK(OnOpcode, Opcode::RefFunc);
         CALLBACK(OnRefFuncExpr, func_index);
-        CALLBACK(OnOpcodeUint32, func_index);
+        // Note: Do not call OnOpcodeUint32 for synthetic ref.func opcodes
+        // as they don't actually exist in the binary and shouldn't be counted
+        // in opcode statistics.
         CALLBACK0(OnEndExpr);
       }
       CALLBACK(EndElemExpr, i, j);
