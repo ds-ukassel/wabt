@@ -81,6 +81,13 @@ Wabt has been compiled to JavaScript via emscripten. Some of the functionality i
 [relaxed-simd]: https://github.com/WebAssembly/relaxed-simd
 [custom-page-sizes]: https://github.com/WebAssembly/custom-page-sizes
 
+## Support for additional proposals in this fork
+This fork adds partial and temporary support for additional proposals not yet implemented/released [upstream](https://github.com/WebAssembly/wabt).
+This includes:
+- Function References done by @zherczeg in https://github.com/WebAssembly/wabt/pull/2562 and https://github.com/WebAssembly/wabt/pull/2567
+- GC Opcodes done by @zherczeg in https://github.com/WebAssembly/wabt/pull/2618
+- Wide Arithmetic Opcodes (minimal support)
+
 ## Cloning
 
 Clone as normal, but don't forget to get the submodules as well:
